@@ -1,0 +1,135 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.24.24.22086",
+      "templateHash": "10171155570839528040"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "EastUS"
+    },
+    "appGatewayName": {
+      "type": "string",
+      "defaultValue": "your-app-gw"
+    },
+    "openaiEndpoints": {
+      "type": "array",
+      "defaultValue": [
+        "eastus.openai.azure.com",
+        "francecentral.openai.azure.com",
+        "japaneast.openai.azure.com"
+      ]
+    },
+    "frontendPort": {
+      "type": "int",
+      "defaultValue": 80
+    },
+    "backendPort": {
+      "type": "int",
+      "defaultValue": 443
+    }
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualNetworks",
+      "apiVersion": "2021-05-01",
+      "name": "myVnet",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "mySubnet",
+            "properties": {
+              "addressPrefix": "10.0.0.0/24"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/applicationGateways",
+      "apiVersion": "2021-05-01",
+      "name": "[parameters('appGatewayName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "Standard_v2",
+          "tier": "Standard_v2"
+        },
+        "gatewayIPConfigurations": [
+          {
+            "name": "appGatewayIpConfig",
+            "properties": {
+              "subnet": {
+                "id": "[reference(resourceId('Microsoft.Network/virtualNetworks', 'myVnet'), '2021-05-01').subnets[0].id]"
+              }
+            }
+          }
+        ],
+        "httpListeners": [
+          {
+            "name": "appGatewayHttpListener",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', parameters('appGatewayName'), 'appGatewayFrontendIp')]"
+              },
+              "frontendPort": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', parameters('appGatewayName'), 'appGatewayFrontendPort')]"
+              },
+              "protocol": "Http"
+            }
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "appGatewayBackendPool",
+            "properties": {
+              "copy": [
+                {
+                  "name": "backendAddresses",
+                  "count": "[length(parameters('openaiEndpoints'))]",
+                  "input": {
+                    "fqdn": "[parameters('openaiEndpoints')[copyIndex('backendAddresses')]]"
+                  }
+                }
+              ]
+            }
+          }
+        ],
+        "backendHttpSettingsCollection": [
+          {
+            "name": "appGatewayBackendHttpSettings",
+            "properties": {
+              "cookieBasedAffinity": "Disabled",
+              "path": "/status-0123456789abcdef",
+              "port": "[parameters('backendPort')]",
+              "protocol": "Https",
+              "pickHostNameFromBackendAddress": true,
+              "requestTimeout": 300
+            }
+          }
+        ],
+        "urlPathMaps": []
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/virtualNetworks', 'myVnet')]"
+      ]
+    }
+  ],
+  "outputs": {
+    "appGatewayId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.Network/applicationGateways', parameters('appGatewayName'))]"
+    }
+  }
+}
