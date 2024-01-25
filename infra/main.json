@@ -5,17 +5,13 @@
     "_generator": {
       "name": "bicep",
       "version": "0.24.24.22086",
-      "templateHash": "10171155570839528040"
+      "templateHash": "8104344521720728542"
     }
   },
   "parameters": {
     "location": {
       "type": "string",
       "defaultValue": "EastUS"
-    },
-    "appGatewayName": {
-      "type": "string",
-      "defaultValue": "your-app-gw"
     },
     "openaiEndpoints": {
       "type": "array",
@@ -32,9 +28,30 @@
     "backendPort": {
       "type": "int",
       "defaultValue": 443
+    },
+    "publicIPAddressName": {
+      "type": "string",
+      "defaultValue": "your-public-ip"
+    },
+    "capacity": {
+      "type": "int",
+      "defaultValue": 2
+    },
+    "applicationGatewayName": {
+      "type": "string",
+      "defaultValue": "app-gw-test"
     }
   },
   "resources": [
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2020-06-01",
+      "name": "[parameters('publicIPAddressName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publicIPAllocationMethod": "Dynamic"
+      }
+    },
     {
       "type": "Microsoft.Network/virtualNetworks",
       "apiVersion": "2021-05-01",
@@ -58,13 +75,14 @@
     },
     {
       "type": "Microsoft.Network/applicationGateways",
-      "apiVersion": "2021-05-01",
-      "name": "[parameters('appGatewayName')]",
+      "apiVersion": "2020-06-01",
+      "name": "[parameters('applicationGatewayName')]",
       "location": "[parameters('location')]",
       "properties": {
         "sku": {
-          "name": "Standard_v2",
-          "tier": "Standard_v2"
+          "name": "Standard_Medium",
+          "tier": "Standard",
+          "capacity": "[parameters('capacity')]"
         },
         "gatewayIPConfigurations": [
           {
@@ -76,17 +94,21 @@
             }
           }
         ],
-        "httpListeners": [
+        "frontendIPConfigurations": [
           {
-            "name": "appGatewayHttpListener",
+            "name": "appGatewayFrontendIP",
             "properties": {
-              "frontendIPConfiguration": {
-                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', parameters('appGatewayName'), 'appGatewayFrontendIp')]"
-              },
-              "frontendPort": {
-                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', parameters('appGatewayName'), 'appGatewayFrontendPort')]"
-              },
-              "protocol": "Http"
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddressName'))]"
+              }
+            }
+          }
+        ],
+        "frontendPorts": [
+          {
+            "name": "appGatewayFrontendPort",
+            "properties": {
+              "port": "[parameters('frontendPort')]"
             }
           }
         ],
@@ -110,18 +132,63 @@
           {
             "name": "appGatewayBackendHttpSettings",
             "properties": {
-              "cookieBasedAffinity": "Disabled",
-              "path": "/status-0123456789abcdef",
               "port": "[parameters('backendPort')]",
               "protocol": "Https",
+              "cookieBasedAffinity": "Disabled",
+              "requestTimeout": 30,
               "pickHostNameFromBackendAddress": true,
-              "requestTimeout": 300
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/probes', parameters('applicationGatewayName'), 'customHealthProbe')]"
+              }
             }
           }
         ],
-        "urlPathMaps": []
+        "httpListeners": [
+          {
+            "name": "appGatewayHttpListener",
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', parameters('applicationGatewayName'), 'appGatewayFrontendIP')]"
+              },
+              "frontendPort": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/frontendPorts', parameters('applicationGatewayName'), 'appGatewayFrontendPort')]"
+              },
+              "protocol": "Http"
+            }
+          }
+        ],
+        "probes": [
+          {
+            "name": "customHealthProbe",
+            "properties": {
+              "protocol": "Https",
+              "path": "/status-0123456789abcdef",
+              "interval": 30,
+              "timeout": 30,
+              "unhealthyThreshold": 3
+            }
+          }
+        ],
+        "requestRoutingRules": [
+          {
+            "name": "rule1",
+            "properties": {
+              "ruleType": "Basic",
+              "httpListener": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/httpListeners', parameters('applicationGatewayName'), 'appGatewayHttpListener')]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/backendAddressPools', parameters('applicationGatewayName'), 'appGatewayBackendPool')]"
+              },
+              "backendHttpSettings": {
+                "id": "[resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', parameters('applicationGatewayName'), 'appGatewayBackendHttpSettings')]"
+              }
+            }
+          }
+        ]
       },
       "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', parameters('publicIPAddressName'))]",
         "[resourceId('Microsoft.Network/virtualNetworks', 'myVnet')]"
       ]
     }
@@ -129,7 +196,7 @@
   "outputs": {
     "appGatewayId": {
       "type": "string",
-      "value": "[resourceId('Microsoft.Network/applicationGateways', parameters('appGatewayName'))]"
+      "value": "[resourceId('Microsoft.Network/applicationGateways', parameters('applicationGatewayName'))]"
     }
   }
 }

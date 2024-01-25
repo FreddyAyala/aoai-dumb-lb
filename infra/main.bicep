@@ -1,5 +1,5 @@
 param location string = 'EastUS' // You can change this as needed
-param appGatewayName string = 'your-app-gw' // Change it to your preferred name
+
 param openaiEndpoints array = [
   'eastus.openai.azure.com'
   'francecentral.openai.azure.com'
@@ -9,6 +9,17 @@ param openaiEndpoints array = [
 
 param frontendPort int = 80 // Port for HTTP (Change to 443 for HTTPS)
 param backendPort int = 443 // Port for the OpenAI endpoints
+param publicIPAddressName string = 'your-public-ip' // Change it to your preferred name
+param capacity int =2
+param applicationGatewayName string= 'app-gw-test'
+
+resource publicIPAddress 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
+  name: publicIPAddressName
+  location: location
+  properties: {
+    publicIPAllocationMethod: 'Dynamic'
+  }
+}
 
 resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
   name: 'myVnet'
@@ -30,13 +41,14 @@ resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
   }
 }
 
-resource applicationGateway 'Microsoft.Network/applicationGateways@2021-05-01' = {
-  name: appGatewayName
+resource applicationGateway 'Microsoft.Network/applicationGateways@2020-06-01' = {
+  name: applicationGatewayName
   location: location
   properties: {
     sku: {
-      name: 'Standard_v2'
-      tier: 'Standard_v2'
+      name: 'Standard_Medium'
+      tier: 'Standard'
+      capacity: capacity
     }
     gatewayIPConfigurations: [
       {
@@ -48,14 +60,21 @@ resource applicationGateway 'Microsoft.Network/applicationGateways@2021-05-01' =
         }
       }
     ]
-    httpListeners: [
+    frontendIPConfigurations: [
       {
-        name: 'appGatewayHttpListener'
+        name: 'appGatewayFrontendIP'
         properties: {
-          frontendIPConfiguration: { id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', appGatewayName, 'appGatewayFrontendIp') }
-          frontendPort: { id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', appGatewayName, 'appGatewayFrontendPort') }
-          protocol: 'Http'
-          // Change this to 'Https' and configure SSL certificate if using HTTPS
+          publicIPAddress: {
+            id: publicIPAddress.id
+          }
+        }
+      }
+    ]
+    frontendPorts: [
+      {
+        name: 'appGatewayFrontendPort'
+        properties: {
+          port: frontendPort
         }
       }
     ]
@@ -63,9 +82,12 @@ resource applicationGateway 'Microsoft.Network/applicationGateways@2021-05-01' =
       {
         name: 'appGatewayBackendPool'
         properties: {
-          backendAddresses: [for fqdn in openaiEndpoints: {
-            fqdn: fqdn
-          }]
+          backendAddresses: [
+            // This loop will create a backend address for each FQDN in the openaiEndpoints array
+            for endpoint in openaiEndpoints: {
+              fqdn: endpoint
+            }
+          ]
         }
       }
     ]
@@ -73,19 +95,60 @@ resource applicationGateway 'Microsoft.Network/applicationGateways@2021-05-01' =
       {
         name: 'appGatewayBackendHttpSettings'
         properties: {
-          cookieBasedAffinity: 'Disabled'
-          path: '/status-0123456789abcdef'
           port: backendPort
           protocol: 'Https'
-          pickHostNameFromBackendAddress: true
-          requestTimeout: 300
-          // Other settings as needed
+          cookieBasedAffinity: 'Disabled'
+          requestTimeout: 30
+          pickHostNameFromBackendAddress: true // Preserve the original host header
+          probe: {
+            id: resourceId('Microsoft.Network/applicationGateways/probes', applicationGatewayName, 'customHealthProbe')
+          }
         }
       }
     ]
-    urlPathMaps: [] // Customize according to your requirements
-    // Define other settings like custom health probes, rewrite rules, etc.
-    // Additional elements such as rules, SSL certificates, and more would also need to be included here
+    httpListeners: [
+      {
+        name: 'appGatewayHttpListener'
+        properties: {
+          frontendIPConfiguration: {
+            id: resourceId('Microsoft.Network/applicationGateways/frontendIPConfigurations', applicationGatewayName, 'appGatewayFrontendIP')
+          }
+          frontendPort: {
+            id: resourceId('Microsoft.Network/applicationGateways/frontendPorts', applicationGatewayName, 'appGatewayFrontendPort')
+          }
+          protocol: 'Http'
+        }
+      }
+    ]
+    probes: [
+      {
+        name: 'customHealthProbe'
+        properties: {
+          protocol: 'Https'
+          path: '/status-0123456789abcdef'
+          interval: 30
+          timeout: 30
+          unhealthyThreshold: 3
+        }
+      }
+    ]
+    requestRoutingRules: [
+      {
+        name: 'rule1'
+        properties: {
+          ruleType: 'Basic'
+          httpListener: {
+            id: resourceId('Microsoft.Network/applicationGateways/httpListeners', applicationGatewayName, 'appGatewayHttpListener')
+          }
+          backendAddressPool: {
+            id: resourceId('Microsoft.Network/applicationGateways/backendAddressPools', applicationGatewayName, 'appGatewayBackendPool')
+          }
+          backendHttpSettings: {
+            id: resourceId('Microsoft.Network/applicationGateways/backendHttpSettingsCollection', applicationGatewayName, 'appGatewayBackendHttpSettings')
+          }
+        }
+      }
+    ]
   }
 }
 
