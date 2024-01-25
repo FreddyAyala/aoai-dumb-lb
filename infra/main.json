@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.24.24.22086",
-      "templateHash": "8104344521720728542"
+      "templateHash": "281407533269403411"
     }
   },
   "parameters": {
@@ -80,8 +80,8 @@
       "location": "[parameters('location')]",
       "properties": {
         "sku": {
-          "name": "Standard_Medium",
-          "tier": "Standard",
+          "name": "Standard_v2",
+          "tier": "Standard_v2",
           "capacity": "[parameters('capacity')]"
         },
         "gatewayIPConfigurations": [
@@ -165,7 +165,8 @@
               "path": "/status-0123456789abcdef",
               "interval": 30,
               "timeout": 30,
-              "unhealthyThreshold": 3
+              "unhealthyThreshold": 3,
+              "pickHostNameFromBackendHttpSettings": true
             }
           }
         ],
