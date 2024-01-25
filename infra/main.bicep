@@ -46,8 +46,8 @@ resource applicationGateway 'Microsoft.Network/applicationGateways@2020-06-01' =
   location: location
   properties: {
     sku: {
-      name: 'Standard_Medium'
-      tier: 'Standard'
+      name: 'Standard_v2'
+      tier: 'Standard_v2'
       capacity: capacity
     }
     gatewayIPConfigurations: [
@@ -129,6 +129,7 @@ resource applicationGateway 'Microsoft.Network/applicationGateways@2020-06-01' =
           interval: 30
           timeout: 30
           unhealthyThreshold: 3
+          pickHostNameFromBackendHttpSettings: true 
         }
       }
     ]
