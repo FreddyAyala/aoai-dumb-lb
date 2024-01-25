@@ -1,7 +1,7 @@
 
 # Azure OpenAI Dumb Load Balancing
 
-aoai-kiss-lb (Azure OpenAI Keep It Simple Stupid Load Balancing) provides two practical solutions for distributing client requests across Azure OpenAI instances, helping to manage workloads and improve service resilience.
+This repository provides two practical solutions for distributing client requests across Azure OpenAI instances in a round robin way (dumb), helping distribute requests and avoir quota TPM limits using OpenAI instances deployed in several regions.
 
 ## Load Balancing Approaches
 
