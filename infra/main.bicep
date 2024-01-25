@@ -19,6 +19,9 @@ resource publicIPAddress 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
   properties: {
     publicIPAllocationMethod: 'Dynamic'
   }
+  sku: {
+    name: 'Standard_v2'
+  }
 }
 
 resource vnet 'Microsoft.Network/virtualNetworks@2021-05-01' = {
