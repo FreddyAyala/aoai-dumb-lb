@@ -1,21 +1,23 @@
 from azure.identity import InteractiveBrowserCredential
-# Replace these with your actual values
-tenant_id = "dea6f2e5-c64a-4e29-8a83-5f1eb4136640"
-#client_id = "68468802-fb57-4e2e-8310-b3b95fab1490"
-
-credential = InteractiveBrowserCredential(tenant_id=tenant_id)
-
-token = credential.get_token("https://cognitiveservices.azure.com/.default")
-print(token.token)
 from langchain.chat_models import AzureChatOpenAI
 from langchain.chains import ConversationChain
+
+# Replace these with your actual values
+tenant_id = ",your tenant id"
+api_base ="http://4.157.241.196/"
+deployment_name = "gpt-35-turbo"
+
+# Managed identites authentication
+credential = InteractiveBrowserCredential(tenant_id=tenant_id)
+token = credential.get_token("https://cognitiveservices.azure.com/.default")
+print(token.token)
 
 chat = AzureChatOpenAI(
     openai_api_type="azure_ad",
     openai_api_key=token.token,
-    openai_api_base="http://20.220.107.45/",
+    openai_api_base=api_base,
     openai_api_version="2023-07-01-preview",
-    deployment_name="gpt-4-32k",
+    deployment_name=deployment_name,
     max_tokens=100,
     temperature=0.3
 )
