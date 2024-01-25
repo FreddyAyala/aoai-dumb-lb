@@ -20,7 +20,7 @@ resource publicIPAddress 'Microsoft.Network/publicIPAddresses@2020-06-01' = {
     publicIPAllocationMethod: 'Dynamic'
   }
   sku: {
-    name: 'Standard_v2'
+    name: 'Standard'
   }
 }
 
